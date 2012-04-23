@@ -9,26 +9,31 @@
 
 typedef VALUE (ruby_method)(...);
 
-typedef struct hyperloglog {
+typedef struct hyperbuilder {
   short bits;
   BoolArray<uword64> *registers;
-} HyperLogLog;
+} HyperBuilder;
+
+typedef struct hyperestimator {
+  short bits;
+  EWAHBoolArray<uword64> *registers;
+} HyperEstimator;
 
 // Register Helpers
-extern "C" void hyperloglog_set_register(BoolArray<uword64> *registers, uword32 position, uword32 value) {
+extern "C" void hyperbuilder_set_register(BoolArray<uword64> *registers, uword32 position, uword32 value) {
   uword32 bucketPos = position / 12;
   uword32 shift = 5 * (position - (bucketPos * 12));
   registers->setWord( position, static_cast<uword32>( (registers->getWord(bucketPos) & ~(0x1f << shift)) | (value << shift) ) );
 }
 
-extern "C" uword32 hyperloglog_get_register(BoolArray<uword64> *registers, uword32 position) {
+extern "C" uword32 hyperbuilder_get_register(BoolArray<uword64> *registers, uword32 position) {
   uword32 bucketPos = position / 12;
   uword32 shift = 5 * (position - (bucketPos * 12));
   return (registers->getWord(bucketPos) & (0x1f << shift)) >> shift;
 }
 
 // Hashing and Calculations 
-extern "C" uword32 hyperloglog_clz(uword32 x) {
+extern "C" uword32 hyperbuilder_clz(uword32 x) {
   if(x == 0) { return 0; }
   for(short i = sizeof(uword32); i >= 0; i--) {
     if(((x >> i) & 0x01) == 1) { return sizeof(uword32) - i; }
@@ -36,7 +41,7 @@ extern "C" uword32 hyperloglog_clz(uword32 x) {
   throw "Could not find a count of leading zeros.";
 }
 
-extern "C" uword32 hyperloglog_hash(VALUE element) {
+extern "C" uword32 hyperbuilder_hash(VALUE element) {
   uword32 hash;
   uword32 seed = 23;
   MurmurHash3_x86_32(RSTRING(element)->ptr, RSTRING(element)->len, seed, &hash);
@@ -44,43 +49,55 @@ extern "C" uword32 hyperloglog_hash(VALUE element) {
 }
 
 // Core API
-extern "C" VALUE hyperloglog_offer(VALUE self, VALUE item) {
-  // We can only offer if we have an uncompressed version,
-  //  check to see 
-  HyperLogLog *estimator;
-  Data_Get_Struct(self, HyperLogLog, estimator);
+extern "C" VALUE hyperbuilder_offer(VALUE self, VALUE item) {
+  HyperBuilder *estimator;
+  Data_Get_Struct(self, HyperBuilder, estimator);
   
-  uword32 x = hyperloglog_hash(item);
+  uword32 x = hyperbuilder_hash(item);
   uword32 j = x >> (32 - estimator->bits);
-  uword32 r = hyperloglog_clz( (x << estimator->bits) | (1 << (estimator->bits - 1)) + 1 );
+  uword32 r = hyperbuilder_clz( (x << estimator->bits) | (1 << (estimator->bits - 1)) + 1 );
   
-  if(hyperloglog_get_register(estimator->registers, j) < r) {
-    hyperloglog_set_register(estimator->registers, j, r);
+  if(hyperbuilder_get_register(estimator->registers, j) < r) {
+    hyperbuilder_set_register(estimator->registers, j, r);
     return Qtrue;
   } else {
     return Qfalse;
   }
 }
+extern "C" VALUE hyperbuilder_estimator(VALUE self) {
+  // create a new estimator from our serialized self
+  return Qnil;
+}
 
-extern "C" VALUE hyperloglog_serialize() {
+extern "C" VALUE hyperbuilder_serialize(VALUE self) {
   // compress the boolArray to an EWAH
   return Qnil;
 }
 
-extern "C" VALUE hyperloglog_deserialize(VALUE serialized) {
-  // create a new hyperlolog and set the EWAH
+extern "C" VALUE hyperbuilder_merge(VALUE args) {
+  // return a new hyperbuilder from merging a bunch of other ones
   return Qnil;
 }
 
-// Merges a bunch of serialized hyperloglogs
+/*
+ * HyperEstimator
+ */
+
+extern "C" VALUE hyperestimator_new(VALUE klass, VALUE args) {
+  return Qnil;
+}
+
+extern "C" VALUE hyperestimator_init(VALUE klass, VALUE args) {
+  return Qnil;
+}
+
 extern "C" VALUE hyperestimator_merge(VALUE args) {
-  // merge a bunch of things and return a set of registers
-  //   What is it that we're merging here? A bunch of EWAHs I'd imagine
+  // return a new HyperEstimator by merging a bunch of other ones
   return Qnil;
 }
 
 // class function
-extern "C" VALUE hyperestimator_estimate_many(VALUE args) {
+extern "C" VALUE hyperestimator_estimate(VALUE args) {
   // merge args and then estimate
   VALUE merged = hyperestimator_merge(args);
   
@@ -111,15 +128,20 @@ extern "C" VALUE hyperestimator_estimate_many(VALUE args) {
   return Qnil;
 }
 
-// static VALUE rbHyperLogLog;
+// static VALUE rbHyperBuilder;
 // static VALUE rbHyperEstimator;
 // extern "C" void Init_hyperloglog() {
-//   rbHyperLogLog = rb_define_class("HyperLogLog", rb_cObject);
-//   rb_define_singleton_method(rbHyperLogLog, "new", (ruby_method*) &hyperloglog_new, 0);
-//   rb_define_method(rbHyperLogLog, "initialize", (ruby_method*) &hyperloglog_init, 0);
-//   rb_define_method(rbHyperLogLog, "offset", (ruby_method*) &hyperloglog_offer, 1);
+//   rbHyperBuilder = rb_define_class("HyperBuilder", rb_cObject);
+//   rb_define_singleton_method(rbHyperBuilder, "new", (ruby_method*) &hyperbuilder_new, 0);
+//   rb_define_method(rbHyperBuilder, "initialize", (ruby_method*) &hyperbuilder_init, 0);
+//
+//   rb_define_method(rbHyperBuilder, "offer", (ruby_method*) &hyperbuilder_offer, 1);
+//   rb_define_method(rbHyperBuilder, "estimator", (ruby_method*) &hyperbuilder_estimator, 0);
+//   rb_define_method(rbHyperBuilder, "serialize", (ruby_method*) &hyperbuilder_serialize, 0);
+//   rb_define_singleton_method(rbHyperBuilder, "merge", (ruby_method*) &hyperbuilder_merge, -2);
 //
 //   rbHyperEstimator = rb_define_class("HyperEstimator", rb_cObject);
-//   rb_define_singleton_method(rbHyperEstimator, "merge", (ruby_method*) &hyperloglog_merge, -2);
-//   rb_define_singleton_method(rbHyperEstimator, "estimate", (ruby_method*) &hyperloglog_estimate_many, -2);
+//   rb_define_singleton_method(rbHyperEstimator, "new", (ruby_method*) &hyperestimator_new, 1);
+//   rb_define_method(rbHyperBuilder, "initialize", (ruby_method*) &hyperestimator_init, 1);
+//   rb_define_singleton_method(rbHyperEstimator, "estimate", (ruby_method*) &hyperestimator_estimate, -2);
 // }

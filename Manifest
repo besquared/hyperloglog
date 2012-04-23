@@ -1,0 +1,14 @@
+CHANGELOG
+README.md
+Rakefile
+ext/ewah-bitset.cpp
+ext/ewah/boolarray.h
+ext/ewah/ewah.h
+ext/extconf.rb
+ext/hyperloglog.cpp
+ext/murmur3/example.txt
+ext/murmur3/murmur3.c
+ext/murmur3/murmur3.h
+spec/ewah_bitset_spec.rb
+spec/spec.opts
+Manifest

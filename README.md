@@ -17,5 +17,5 @@ https://github.com/lemire/EWAHBoolArray
     # Read an estimator from bytes on disk
     estimator = HyperEstimator.new(File.read('bytes.txt'))
     
-    # Union and estimate from our two sources
+    # Estimate the union of our two sources
     estimate = HyperEstimator.estimate(builder.estimator, estimator)

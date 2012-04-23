@@ -12,8 +12,11 @@ typedef VALUE (ruby_method)(...);
 typedef struct hyperloglog {
   short bits;
   BoolArray<uword32> *registers;
-  EWAHBoolArray<uword64> *compressed;
+  // EWAHBoolArray<uword64> *compressed;
 } HyperLogLog;
+
+// Need to separate the reading from the writing
+// Writing needs to work on an uncompressed set reading doesn't
 
 // Register Helpers
 extern "C" void hyperloglog_set_register(BoolArray<uword32> *registers, uword32 position, uword32 value) {
@@ -38,24 +41,27 @@ extern "C" uword32 hyperloglog_clz(uword32 x) {
 }
 
 extern "C" uword32 hyperloglog_hash(VALUE element) {
-  return 0;
+  uword32 hash;                /* Output for the hash */
+  uword32 seed = 23;              /* Seed value for hash */
+  MurmurHash3_x86_32(RSTRING(element)->ptr, RSTRING(element)->len, seed, &hash);
+  return hash;
 }
 
 // Core API
 extern "C" VALUE hyperloglog_offer(VALUE self, VALUE item) {
-  // this.offerItem = function(item) {
-  //   var x = this.hashItem(item)
-  //   var j = x >>> (32 - this.bits)
-  //   var r = this.largestSetBitIndex( (x << this.bits) | (1 << (this.bits - 1)) + 1 )
-  //   if(this.registers.get(j) < r) {
-  //     this.registers.set(j, r)
-  //     return true
-  //   } else {
-  //     return false
-  //   }
-  // }
+  HyperLogLog *estimator;
+  Data_Get_Struct(self, HyperLogLog, estimator);
   
-  return Qnil;
+  uword32 x = hyperloglog_hash(item);
+  uword32 j = x >> (32 - estimator->bits);
+  uword32 r = hyperloglog_clz( (x << estimator->bits) | (1 << (estimator->bits - 1)) + 1 );
+  
+  if(hyperloglog_get_register(estimator->registers, j) < r) {
+    hyperloglog_set_register(estimator->registers, j, r);
+    return Qtrue;
+  } else {
+    return Qfalse;
+  }
 }
 
 // class function

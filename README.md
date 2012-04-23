@@ -1,4 +1,4 @@
-# HyperLogLog in Ruby
+# HyperLogLog for Ruby
 
 # External Libraries Included
 

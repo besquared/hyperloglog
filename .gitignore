@@ -1,0 +1,6 @@
+pkg/*
+ext/*.bundle
+ext/*.o
+ext/Makefile
+lib/*
+*.gem

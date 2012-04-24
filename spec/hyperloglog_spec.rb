@@ -30,6 +30,6 @@ describe 'A HyperEstimator with a small set' do
   end
   
   it 'should generate great estimates for a single estimator' do
-    HyperEstimator.estimate(@estimator)
+    puts HyperEstimator.estimate(@estimator)
   end
 end

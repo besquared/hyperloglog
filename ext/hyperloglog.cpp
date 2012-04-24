@@ -155,14 +155,14 @@ extern "C" VALUE hyperbuilder_estimator(VALUE self) {
   return hyperestimator_new(rb_path2class("HyperEstimator"), INT2FIX(builder->bits), hyperbuilder_serialize(self));
 }
 
-extern "C" VALUE hyperestimator_merge(VALUE klass, VALUE args) {
+extern "C" VALUE hyperestimator_merge(VALUE estimators) {
   uword32 bits = 0;
-  BoolArray<uword64> registers[RARRAY(args)->len];
+  BoolArray<uword64> registers[RARRAY(estimators)->len];
   
   // Collect all the expanded registers
-  for(int i = 0; i < RARRAY(args)->len; i++) {
+  for(int i = 0; i < RARRAY(estimators)->len; i++) {
     HyperEstimator *estimator;
-    Data_Get_Struct(*(RARRAY(args)->ptr), HyperEstimator, estimator);
+    Data_Get_Struct(*(RARRAY(estimators)->ptr), HyperEstimator, estimator);
     
     if(bits == 0) {
       bits = estimator->bits;
@@ -174,73 +174,53 @@ extern "C" VALUE hyperestimator_merge(VALUE klass, VALUE args) {
   }
   
   uword32 wordCount = static_cast<uword32>(floor(pow(2, bits) / 12) + 1);
+  BoolArray<uword64> *mergedRegisters = new BoolArray<uword64>(wordCount * sizeof(uword64));
   
-  BoolArray<uword64> mergedRegisters(wordCount * 64);
+  for(int e = 0; e < RARRAY(estimators)->len; e++) {
+    for(uword32 r = 0; r < wordCount; r++) {
+      uword32 estimatorValue = hyperbuilder_get_register(&registers[e], r);
+      if(estimatorValue > hyperbuilder_get_register(mergedRegisters, r)) {
+        hyperbuilder_set_register(mergedRegisters, r, estimatorValue);
+      }
+    }
+  }
   
-  //
-  // Optimize this by not requiring us to expand all the memory
-  //
-  // EWAHBoolArrayIterator<uword64> iterators[RARRAY(args)->len];
-  //
-  // for(int e = 0; e < RARRAY(args)->len; e++) {
-  //   iterators[e] = estimators[e]->sparse_uncompress();
-  // }
-  // 
-  // for(uword32 w = 0; w < wordCount; w++) {
-  //   uword64 words[RARRAY(args)->len];
-  //   
-  //   for(int u = 0; u < RARRAY(args)->len; u++) {
-  //     words[w] = iterators[u].next();
-  //   }
-  //   
-  //   for(int r = 0; r < 12; r++) {
-  //     // go through and to the value checking and assignment
-  //   }
-  // }
-  //
+  HyperBuilder *builder = ALLOC(HyperBuilder);
+  VALUE klass = rb_path2class("HyperEstimator");
   
-  // for(int e = 0; e < RARRAY(args)->len; e++) {
-  //   uword32 estimatorValue = hyperbuilder_get_register(&registers[e], r);
-  //   
-  //   if(estimatorValue > hyperbuilder_get_register(&mergedRegisters, r)) {
-  //     hyperbuilder_set_register(&mergedRegisters, r, estimatorValue);
-  //   }
-  // }
+  builder->bits = FIX2INT(bits);
+  builder->registers = mergedRegisters;
+  builder->registerCount = wordCount;
   
-  return Qnil;
+  return Data_Wrap_Struct(klass, 0, free, builder);
 }
 
-extern "C" VALUE hyperestimator_estimate(VALUE klass, VALUE args) {
+extern "C" VALUE hyperestimator_estimate(VALUE klass, VALUE estimators) {
   cout << "ESTIMATING SOME THINGS! " << endl;
-
-  // merge args and then estimate
-  VALUE merged = hyperestimator_merge(klass, args);
-//   
-//   // var r_sum = 0
-//   // for(var j = 0; j < registers.count; j++) {
-//   //   r_sum += Math.pow(2, (-1 * registers.get(j)))
-//   // }
-//   // 
-//   // // for registerCount >= 128 (bits >= 7)
-//   // var alpha_m = 0.7213 / (1 + 1.079 / registers.count)
-//   // var estimate = alpha_m * Math.pow(registers.count, 2) * (1 / r_sum)
-//   // 
-//   // if(estimate <= (5.0/2.0) * registers.count) {
-//   //   // Small Range Estimate
-//   //   var zeros = 0.0
-//   //   for(var z = 0; z < registers.count; z++) {
-//   //     if(registers.get(z) == 0) { zeros++ }
-//   //   }
-//   //   return Math.round(registers.count * Math.log(registers.count / zeros))
-//   // } else if(estimate <= (1.0/30.0) * Math.pow(2, 32)) {
-//   //   // Intermedia Range Estimate
-//   //   return Math.round(estimate)
-//   // } else if(estimate > (1.0/30.0) * Math.pow(2, 32)) {
-//   //   // Large Range Estimate
-//   //   return Math.round( (Math.pow(-2, 32) * Math.log(1 - (estimate / Math.pow(2, 32)))) )
-//   // }
-//   
-  return Qnil;
+  VALUE merged = hyperestimator_merge(estimators);
+  
+  HyperBuilder *builder;
+  Data_Get_Struct(merged, HyperBuilder, builder);
+  
+  double rSum = 0;
+  for(uword32 j = 0; j < builder->registerCount; j++) {
+    rSum += pow(2, (-1 * hyperbuilder_get_register(builder->registers, j)));
+  }
+  
+  double alphaM = 0.7213 / (1 + 1.079 / builder->registerCount);
+  double estimate = alphaM * pow(builder->registerCount, 2) * (1 / rSum);
+  
+  if(estimate < (5.0/2.0) * builder->registerCount) {
+    uword32 zeros = 0;
+    for(uword32 z = 0; z < builder->registerCount; z++) {
+      if(hyperbuilder_get_register(builder->registers, z) == 0) { zeros++; }
+    }
+    return INT2FIX(round(builder->registerCount * log(builder->registerCount / zeros)));
+  } else if(estimate <= (1.0/30.0) * pow(2,32)) {
+    return INT2FIX(round(estimate));
+  } else {
+    return INT2FIX(round( (pow(-2, 32) * log(1 - (estimate / pow(2, 32)))) ));
+  }
 }
 
 static VALUE rbHyperBuilder;

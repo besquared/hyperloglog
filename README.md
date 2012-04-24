@@ -14,6 +14,8 @@ The API is broken out into 2 pieces, the HyperBuilder and the HyperEstimator. Th
 
 # Example
     
+    require 'hyperloglog'
+    
     # Build a new estimator
     builder = HyperBuilder.new
     0.upto(100).each{|user_id| builder.offer(user_id.to_s)}

@@ -78,13 +78,18 @@ extern "C" uword32 hyperbuilder_hash(VALUE element) {
 }
 
 // Core API
+extern "C" void hyperbuilder_free(HyperBuilder *builder) {
+  delete(builder->registers);
+  free(builder);
+}
+
 extern "C" VALUE hyperbuilder_new(VALUE klass, VALUE bits) {
   HyperBuilder *builder = ALLOC(HyperBuilder);
   
   builder->bits = FIX2INT(bits);
   builder->registerCount = static_cast<uword32>(pow(2, FIX2INT(bits)));
   builder->registers = new BoolArray<uword64>(static_cast<size_t>( (floor(builder->registerCount / 12) + 1) * 64) );
-  return Data_Wrap_Struct(klass, 0, free, builder);
+  return Data_Wrap_Struct(klass, 0, hyperbuilder_free, builder);
 }
 
 extern "C" VALUE hyperbuilder_offer(VALUE self, VALUE item) {
@@ -141,6 +146,10 @@ extern "C" VALUE hyperbuilder_to_s(VALUE self) {
 /*
  * HyperEstimator
  */
+ extern "C" void hyperestimator_free(HyperEstimator *estimator) {
+   delete(estimator->registers);
+   free(estimator);
+ }
 
 extern "C" VALUE hyperestimator_new(VALUE klass, VALUE bits, VALUE serialized) {
   HyperEstimator *estimator = ALLOC(HyperEstimator);
@@ -153,7 +162,7 @@ extern "C" VALUE hyperestimator_new(VALUE klass, VALUE bits, VALUE serialized) {
   ss.write(RSTRING(serialized)->ptr, RSTRING(serialized)->len);
   estimator->registers->read(ss, true);
   
-  return Data_Wrap_Struct(klass, 0, free, estimator);
+  return Data_Wrap_Struct(klass, 0, hyperestimator_free, estimator);
 }
 
 // This is down here cause we're hackety hacking without header files
@@ -198,7 +207,7 @@ extern "C" VALUE hyperestimator_merge(VALUE estimators) {
   builder->registers = mergedRegisters;
   builder->registerCount = registerCount;
   
-  return Data_Wrap_Struct(klass, 0, free, builder);
+  return Data_Wrap_Struct(klass, 0, hyperbuilder_free, builder);
 }
 
 extern "C" VALUE hyperestimator_estimate(VALUE klass, VALUE estimators) {

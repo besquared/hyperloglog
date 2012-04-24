@@ -83,7 +83,7 @@ extern "C" VALUE hyperbuilder_new(VALUE klass, VALUE bits) {
   
   builder->bits = FIX2INT(bits);
   builder->registerCount = static_cast<uword32>(pow(2, FIX2INT(bits)));
-  builder->registers = new BoolArray<uword64>((floor(builder->registerCount / 12) + 1) * 64);
+  builder->registers = new BoolArray<uword64>(static_cast<size_t>( (floor(builder->registerCount / 12) + 1) * 64) );
   return Data_Wrap_Struct(klass, 0, free, builder);
 }
 
@@ -177,13 +177,11 @@ extern "C" VALUE hyperestimator_merge(VALUE estimators) {
     } else if(bits != estimator->bits) {
       rb_raise(rb_eRuntimeError, "Cannot union estimators that aren't of the same size");
     }
-    
     registers[i] = estimator->registers->toBoolArray();
   }
   
   uword32 registerCount = static_cast<uword32>(pow(2, bits));
   BoolArray<uword64> *mergedRegisters = new BoolArray<uword64>((registerCount + 1) * 64);
-  
   for(int e = 0; e < RARRAY(estimators)->len; e++) {
     for(uword32 r = 0; r < registerCount; r++) {
       uword32 estimatorValue = hyperbuilder_get_register(&registers[e], r);
@@ -196,7 +194,7 @@ extern "C" VALUE hyperestimator_merge(VALUE estimators) {
   HyperBuilder *builder = ALLOC(HyperBuilder);
   VALUE klass = rb_path2class("HyperBuilder");
   
-  builder->bits = FIX2INT(bits);
+  builder->bits = bits;
   builder->registers = mergedRegisters;
   builder->registerCount = registerCount;
   
@@ -204,7 +202,6 @@ extern "C" VALUE hyperestimator_merge(VALUE estimators) {
 }
 
 extern "C" VALUE hyperestimator_estimate(VALUE klass, VALUE estimators) {
-  cout << "ESTIMATING SOME THINGS! " << endl;
   VALUE merged = hyperestimator_merge(estimators);
   
   HyperBuilder *builder;
@@ -212,7 +209,6 @@ extern "C" VALUE hyperestimator_estimate(VALUE klass, VALUE estimators) {
   
   double rSum = 0;
   for(uword32 j = 0; j < builder->registerCount; j++) {
-    cout << "(" << (int)hyperbuilder_get_register(builder->registers, j) << ", " << pow(2, (-1 * (int)hyperbuilder_get_register(builder->registers, j))) << "), ";
     rSum += pow(2, (-1 * (int)hyperbuilder_get_register(builder->registers, j)));
   }
   cout << endl;
@@ -220,14 +216,12 @@ extern "C" VALUE hyperestimator_estimate(VALUE klass, VALUE estimators) {
   double alphaM = 0.7213 / (1 + 1.079 / builder->registerCount);
   double estimate = alphaM * pow(builder->registerCount, 2) * (1 / rSum);
   
-  cout << alphaM << " " << rSum << " " << estimate << endl;
-  
   if(estimate < (5.0/2.0) * builder->registerCount) {
     uword32 zeros = 0;
     for(uword32 z = 0; z < builder->registerCount; z++) {
       if(hyperbuilder_get_register(builder->registers, z) == 0) { zeros++; }
     }
-    return INT2FIX(round(builder->registerCount * log(builder->registerCount / zeros)));
+    return INT2FIX(round(builder->registerCount * log(builder->registerCount / (double)zeros)));
   } else if(estimate <= (1.0/30.0) * pow(2,32)) {
     return INT2FIX(round(estimate));
   } else {

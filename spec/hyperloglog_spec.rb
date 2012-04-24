@@ -7,7 +7,6 @@ describe 'A HyperBuilder' do
   end
   
   it 'should put to_s' do
-    puts @builder.to_s
     @builder.to_s.should_not == nil
   end
   
@@ -26,11 +25,12 @@ end
 
 describe 'A HyperEstimator with a small set' do
   before(:each) do
-    @builder = HyperBuilder.new(11)
-    0.upto(9){ |index| @builder.offer(index.to_s) }
+    @builder = HyperBuilder.new(32)
+    0.upto(999){ |index| @builder.offer(index.to_s) }
   end
   
   it 'should generate great estimates for a single estimator' do
+    puts '---------------------------------'
     puts HyperEstimator.estimate(@builder.estimator)
   end
 end

@@ -15,13 +15,14 @@
 typedef VALUE (ruby_method)(...);
 
 typedef struct hyperbuilder {
-  short bits;
+  uword32 bits;
   uword32 registerCount;
   BoolArray<uword64> *registers;
 } HyperBuilder;
 
 typedef struct hyperestimator {
-  short bits;
+  uword32 bits;
+  uword32 registerCount;
   EWAHBoolArray<uword64> *registers;
 } HyperEstimator;
 
@@ -72,8 +73,7 @@ extern "C" uword64 hyperbuilder_clz(uword32 x) {
 
 extern "C" uword32 hyperbuilder_hash(VALUE element) {
   uword32 hash;
-  uword32 seed = 23;
-  MurmurHash3_x86_32(RSTRING(element)->ptr, RSTRING(element)->len, seed, &hash);
+  MurmurHash3_x86_32(RSTRING(element)->ptr, RSTRING(element)->len, 23, &hash);
   return hash;
 }
 
@@ -110,11 +110,6 @@ extern "C" VALUE hyperbuilder_offer(VALUE self, VALUE item) {
   }
 }
 
-// extern "C" VALUE hyperbuilder_estimator(VALUE self) {
-//   // create a new estimator from our serialized self
-//   return Qnil;
-// }
-// 
 extern "C" VALUE hyperbuilder_serialize(VALUE self) {
   HyperBuilder *builder;
   Data_Get_Struct(self, HyperBuilder, builder);
@@ -128,7 +123,7 @@ extern "C" VALUE hyperbuilder_serialize(VALUE self) {
   ewahBitset.write(ss);
   return rb_str_new(ss.str().c_str(), ss.str().size());
 }
-// 
+
 // extern "C" VALUE hyperbuilder_merge(VALUE args) {
 //   // return a new hyperbuilder from merging a bunch of other ones
 //   return Qnil;
@@ -138,23 +133,88 @@ extern "C" VALUE hyperbuilder_serialize(VALUE self) {
  * HyperEstimator
  */
 
-// extern "C" VALUE hyperestimator_new(VALUE klass, VALUE args) {
-//   return Qnil;
-// }
-// 
-// extern "C" VALUE hyperestimator_init(VALUE klass, VALUE args) {
-//   return Qnil;
-// }
-// 
-// extern "C" VALUE hyperestimator_merge(VALUE args) {
-//   // return a new HyperEstimator by merging a bunch of other ones
-//   return Qnil;
-// }
+extern "C" VALUE hyperestimator_new(VALUE klass, VALUE bits, VALUE bytes) {
+  HyperEstimator *estimator = ALLOC(HyperEstimator);
+  
+  estimator->bits = FIX2INT(bits);
+  estimator->registers = new EWAHBoolArray<uword64>();
+  estimator->registerCount = static_cast<uword32>(floor((pow(2, FIX2INT(bits)) / 12)) + 1);
+  
+  stringstream ss;
+  ss.write(RSTRING_PTR(bytes), RSTRING_LEN(bytes));
+  estimator->registers->read(ss, true);
+  
+  return Data_Wrap_Struct(klass, 0, free, estimator);
+}
 
-// class function
-// extern "C" VALUE hyperestimator_estimate(VALUE args) {
-//   // merge args and then estimate
-//   VALUE merged = hyperestimator_merge(args);
+// This is down here cause we're hackety hacking without header files
+extern "C" VALUE hyperbuilder_estimator(VALUE self) {
+  HyperBuilder *builder;
+  Data_Get_Struct(self, HyperBuilder, builder);
+  
+  return hyperestimator_new(rb_path2class("HyperEstimator"), INT2FIX(builder->bits), hyperbuilder_serialize(self));
+}
+
+extern "C" VALUE hyperestimator_merge(VALUE klass, VALUE args) {
+  uword32 bits = 0;
+  BoolArray<uword64> registers[RARRAY(args)->len];
+  
+  // Collect all the expanded registers
+  for(int i = 0; i < RARRAY(args)->len; i++) {
+    HyperEstimator *estimator;
+    Data_Get_Struct(*(RARRAY(args)->ptr), HyperEstimator, estimator);
+    
+    if(bits == 0) {
+      bits = estimator->bits;
+    } else if(bits != estimator->bits) {
+      rb_raise(rb_eRuntimeError, "Cannot union estimators that aren't of the same size");
+    }
+    
+    registers[i] = estimator->registers->toBoolArray();
+  }
+  
+  uword32 wordCount = static_cast<uword32>(floor(pow(2, bits) / 12) + 1);
+  
+  BoolArray<uword64> mergedRegisters(wordCount * 64);
+  
+  //
+  // Optimize this by not requiring us to expand all the memory
+  //
+  // EWAHBoolArrayIterator<uword64> iterators[RARRAY(args)->len];
+  //
+  // for(int e = 0; e < RARRAY(args)->len; e++) {
+  //   iterators[e] = estimators[e]->sparse_uncompress();
+  // }
+  // 
+  // for(uword32 w = 0; w < wordCount; w++) {
+  //   uword64 words[RARRAY(args)->len];
+  //   
+  //   for(int u = 0; u < RARRAY(args)->len; u++) {
+  //     words[w] = iterators[u].next();
+  //   }
+  //   
+  //   for(int r = 0; r < 12; r++) {
+  //     // go through and to the value checking and assignment
+  //   }
+  // }
+  //
+  
+  // for(int e = 0; e < RARRAY(args)->len; e++) {
+  //   uword32 estimatorValue = hyperbuilder_get_register(&registers[e], r);
+  //   
+  //   if(estimatorValue > hyperbuilder_get_register(&mergedRegisters, r)) {
+  //     hyperbuilder_set_register(&mergedRegisters, r, estimatorValue);
+  //   }
+  // }
+  
+  return Qnil;
+}
+
+extern "C" VALUE hyperestimator_estimate(VALUE klass, VALUE args) {
+  cout << "ESTIMATING SOME THINGS! " << endl;
+
+  // merge args and then estimate
+  VALUE merged = hyperestimator_merge(klass, args);
 //   
 //   // var r_sum = 0
 //   // for(var j = 0; j < registers.count; j++) {
@@ -180,8 +240,8 @@ extern "C" VALUE hyperbuilder_serialize(VALUE self) {
 //   //   return Math.round( (Math.pow(-2, 32) * Math.log(1 - (estimate / Math.pow(2, 32)))) )
 //   // }
 //   
-//   return Qnil;
-// }
+  return Qnil;
+}
 
 static VALUE rbHyperBuilder;
 static VALUE rbHyperEstimator;
@@ -190,12 +250,11 @@ extern "C" void Init_hyperloglog() {
   rb_define_singleton_method(rbHyperBuilder, "new", (ruby_method*) &hyperbuilder_new, 1);
 
   rb_define_method(rbHyperBuilder, "offer", (ruby_method*) &hyperbuilder_offer, 1);
-  // rb_define_method(rbHyperBuilder, "estimator", (ruby_method*) &hyperbuilder_estimator, 0);
+  rb_define_method(rbHyperBuilder, "estimator", (ruby_method*) &hyperbuilder_estimator, 0);
   rb_define_method(rbHyperBuilder, "serialize", (ruby_method*) &hyperbuilder_serialize, 0);
   // rb_define_singleton_method(rbHyperBuilder, "merge", (ruby_method*) &hyperbuilder_merge, -2);
 
-  // rbHyperEstimator = rb_define_class("HyperEstimator", rb_cObject);
-  // rb_define_singleton_method(rbHyperEstimator, "new", (ruby_method*) &hyperestimator_new, 1);
-  // rb_define_method(rbHyperBuilder, "initialize", (ruby_method*) &hyperestimator_init, 1);
-  // rb_define_singleton_method(rbHyperEstimator, "estimate", (ruby_method*) &hyperestimator_estimate, -2);
+  rbHyperEstimator = rb_define_class("HyperEstimator", rb_cObject);
+  rb_define_singleton_method(rbHyperEstimator, "new", (ruby_method*) &hyperestimator_new, 2);
+  rb_define_singleton_method(rbHyperEstimator, "estimate", (ruby_method*) &hyperestimator_estimate, -2);
 }

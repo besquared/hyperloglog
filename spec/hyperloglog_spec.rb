@@ -1,5 +1,9 @@
 require 'lib/hyperloglog'
 
+def load_data(name)
+  File.readlines(File.join(File.dirname(__FILE__), 'data', "#{name}.txt"))
+end
+
 describe 'A HyperBuilder' do
   before(:each) do
     @builder = HyperBuilder.new(11)
@@ -23,14 +27,22 @@ describe 'A HyperBuilder' do
   end
 end
 
-describe 'A HyperEstimator with a small set' do
-  before(:each) do
-    @builder = HyperBuilder.new(32)
-    0.upto(999){ |index| @builder.offer(index.to_s) }
-  end
-  
-  it 'should generate great estimates for a single estimator' do
-    puts '---------------------------------'
-    puts HyperEstimator.estimate(@builder.estimator)
+describe 'A HyperEstimator' do
+  it 'should generate good estimates' do
+    items = load_data('small_integers')
+    total_items = items.uniq.length
+    
+    4.upto(20) do |m|
+      se = total_items * (1.04 / Math.sqrt(2**m))
+      
+      builder = HyperBuilder.new(m)
+      items.each{|item| builder.offer(item.to_s)}
+      
+      estimate = HyperEstimator.estimate(builder.estimator)
+      
+      # puts "For m = #{m} we should have #{estimate} in [#{total_items - (3 * se)}, #{total_items + (3 * se)}]"
+      estimate.should be >= total_items - (3 * se)
+      estimate.should be <= total_items + (3 * se)
+    end
   end
 end

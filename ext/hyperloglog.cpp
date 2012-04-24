@@ -211,7 +211,6 @@ extern "C" VALUE hyperestimator_estimate(VALUE klass, VALUE estimators) {
   for(uword32 j = 0; j < builder->registerCount; j++) {
     rSum += pow(2, (-1 * (int)hyperbuilder_get_register(builder->registers, j)));
   }
-  cout << endl;
   
   double alphaM = 0.7213 / (1 + 1.079 / builder->registerCount);
   double estimate = alphaM * pow(builder->registerCount, 2) * (1 / rSum);

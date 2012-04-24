@@ -25,6 +25,11 @@ describe 'A HyperBuilder' do
   it 'should create the proper estimator' do
     @builder.to_s.should == @builder.estimator.to_s
   end
+  
+  it 'should reset' do
+    @builder.reset
+    @builder.size_in_bits.should == 0
+  end
 end
 
 describe 'A HyperEstimator' do

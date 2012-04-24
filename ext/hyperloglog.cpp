@@ -110,6 +110,13 @@ extern "C" VALUE hyperbuilder_offer(VALUE self, VALUE item) {
   }
 }
 
+extern "C" VALUE hyperbuilder_reset(VALUE self) {
+  HyperBuilder *builder;
+  Data_Get_Struct(self, HyperBuilder, builder);
+  builder->registers->reset();
+  return Qnil;
+}
+
 extern "C" VALUE hyperbuilder_serialize(VALUE self) {
   HyperBuilder *builder;
   Data_Get_Struct(self, HyperBuilder, builder);
@@ -137,6 +144,14 @@ extern "C" VALUE hyperbuilder_to_s(VALUE self) {
   
   return rb_str_new(ss.str().c_str(), ss.str().size());
 }
+
+extern "C" VALUE hyperbuilder_size_in_bits(VALUE self) {
+  HyperBuilder *builder;
+  Data_Get_Struct(self, HyperBuilder, builder);
+  
+  return INT2FIX(builder->registers->sizeInBits());
+}
+
 
 // extern "C" VALUE hyperbuilder_merge(VALUE args) {
 //   // return a new hyperbuilder from merging a bunch of other ones
@@ -261,8 +276,10 @@ extern "C" void Init_hyperloglog() {
   rb_define_singleton_method(rbHyperBuilder, "new", (ruby_method*) &hyperbuilder_new, 1);
 
   rb_define_method(rbHyperBuilder, "offer", (ruby_method*) &hyperbuilder_offer, 1);
+  rb_define_method(rbHyperBuilder, "reset", (ruby_method*) &hyperbuilder_reset, 0);
   rb_define_method(rbHyperBuilder, "estimator", (ruby_method*) &hyperbuilder_estimator, 0);
   rb_define_method(rbHyperBuilder, "serialize", (ruby_method*) &hyperbuilder_serialize, 0);
+  rb_define_method(rbHyperBuilder, "size_in_bits", (ruby_method*) &hyperbuilder_size_in_bits, 0);
   rb_define_method(rbHyperBuilder, "to_s", (ruby_method*) &hyperbuilder_to_s, 0);
 
   rbHyperEstimator = rb_define_class("HyperEstimator", rb_cObject);

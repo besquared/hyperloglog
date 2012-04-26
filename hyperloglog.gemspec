@@ -6,7 +6,7 @@ Gem::Specification.new do |s|
 
   s.required_rubygems_version = Gem::Requirement.new(">= 1.2") if s.respond_to? :required_rubygems_version=
   s.authors = ["Josh Ferguson"]
-  s.date = "2012-04-24"
+  s.date = "2012-04-26"
   s.description = "An efficient implementation of the HyperLogLog cardinality estimator"
   s.email = "josh@besquared.net"
   s.extensions = ["ext/extconf.rb"]

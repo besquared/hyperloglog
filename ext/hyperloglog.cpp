@@ -152,12 +152,6 @@ extern "C" VALUE hyperbuilder_size_in_bits(VALUE self) {
   return INT2FIX(builder->registers->sizeInBits());
 }
 
-
-// extern "C" VALUE hyperbuilder_merge(VALUE args) {
-//   // return a new hyperbuilder from merging a bunch of other ones
-//   return Qnil;
-// }
-
 /*
  * HyperEstimator
  */
@@ -194,7 +188,7 @@ extern "C" VALUE hyperestimator_merge(VALUE estimators) {
   // Collect all the expanded registers
   for(int i = 0; i < RARRAY_LEN(estimators); i++) {
     HyperEstimator *estimator;
-    Data_Get_Struct(*(RARRAY_PTR(estimators)), HyperEstimator, estimator);
+    Data_Get_Struct(rb_ary_entry(estimators, i), HyperEstimator, estimator);
 
     if(bits == 0) {
       bits = estimator->bits;

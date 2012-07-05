@@ -92,6 +92,26 @@ extern "C" VALUE hyperbuilder_new(VALUE klass, VALUE bits) {
   return Data_Wrap_Struct(klass, 0, hyperbuilder_free, builder);
 }
 
+extern "C" VALUE hyperbuilder_load(VALUE klass, VALUE bits, VALUE serialized) {
+  HyperBuilder *builder = ALLOC(HyperBuilder);
+
+  builder->bits = FIX2INT(bits);
+  builder->registerCount = static_cast<uword32>(pow(2, FIX2INT(bits)));
+  builder->registers = new BoolArray<uword64>(static_cast<size_t>( (floor(builder->registerCount / 12) + 1) * 64) );
+
+  EWAHBoolArray<uword64> *registers = new EWAHBoolArray<uword64>();
+  stringstream ss;
+  ss.write(RSTRING_PTR(serialized), RSTRING_LEN(serialized));
+  registers->read(ss, true);
+
+  for(uword32 r = 0; r < builder->registerCount; r++) {
+    uword32 estimatorValue = hyperbuilder_get_register(&(registers->toBoolArray()), r);
+    hyperbuilder_set_register(builder->registers, r, estimatorValue);
+  }
+
+  return Data_Wrap_Struct(klass, 0, hyperbuilder_free, builder);
+}
+
 extern "C" VALUE hyperbuilder_offer(VALUE self, VALUE item) {
   HyperBuilder *builder;
   Data_Get_Struct(self, HyperBuilder, builder);
@@ -274,6 +294,7 @@ static VALUE rbHyperEstimator;
 extern "C" void Init_hyperloglog() {
   rbHyperBuilder = rb_define_class("HyperBuilder", rb_cObject);
   rb_define_singleton_method(rbHyperBuilder, "new", (ruby_method*) &hyperbuilder_new, 1);
+  rb_define_singleton_method(rbHyperBuilder, "load", (ruby_method*) &hyperbuilder_load, 2);
 
   rb_define_method(rbHyperBuilder, "offer", (ruby_method*) &hyperbuilder_offer, 1);
   rb_define_method(rbHyperBuilder, "reset", (ruby_method*) &hyperbuilder_reset, 0);

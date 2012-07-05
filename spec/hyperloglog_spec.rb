@@ -31,6 +31,11 @@ describe 'A HyperBuilder' do
     @builder.reset
     @builder.size_in_bits.should == 0
   end
+
+  it 'should load' do
+    copy = HyperBuilder.load(11, @builder.serialize)
+    @builder.to_s.should == copy.to_s
+  end
 end
 
 describe 'A HyperEstimator' do

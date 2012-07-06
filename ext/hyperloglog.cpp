@@ -104,8 +104,9 @@ extern "C" VALUE hyperbuilder_load(VALUE klass, VALUE bits, VALUE serialized) {
   ss.write(RSTRING_PTR(serialized), RSTRING_LEN(serialized));
   registers->read(ss, true);
 
+  BoolArray<uword64> base = registers->toBoolArray();
   for(uword32 r = 0; r < builder->registerCount; r++) {
-    uword32 estimatorValue = hyperbuilder_get_register(&(registers->toBoolArray()), r);
+    uword32 estimatorValue = hyperbuilder_get_register(&base, r);
     hyperbuilder_set_register(builder->registers, r, estimatorValue);
   }
 

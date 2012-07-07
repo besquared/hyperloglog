@@ -80,6 +80,11 @@ describe 'A HyperEstimator' do
 
       array_estimate = HyperEstimator.estimate([builder_a.estimator, builder_b.estimator])
       array_estimate.should == estimate
+
+      estimator = builder_a.estimator
+      estimator.merge!(builder_b.estimator)
+      merged_estimate = HyperEstimator.estimate(estimator)
+      merged_estimate.should == estimate
     end
   end
 end

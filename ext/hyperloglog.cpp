@@ -202,6 +202,35 @@ extern "C" VALUE hyperbuilder_estimator(VALUE self) {
   return hyperestimator_new(rb_path2class("HyperEstimator"), INT2FIX(builder->bits), hyperbuilder_serialize(self));
 }
 
+extern "C" VALUE hyperestimator_merge_bang(VALUE self_value, VALUE estimator_value) {
+  HyperEstimator *estimator;
+  Data_Get_Struct(estimator_value, HyperEstimator, estimator);
+  BoolArray<uword64> estimator_bool = estimator->registers->toBoolArray();
+
+  HyperEstimator *self;
+  Data_Get_Struct(self_value, HyperEstimator, self);
+  BoolArray<uword64> self_bool = self->registers->toBoolArray();
+
+  if (self->bits != estimator->bits) {
+    rb_raise(rb_eRuntimeError, "Cannot union estimators that aren't of the same size");
+  }
+
+  uword32 registerCount = static_cast<uword32>(pow(2, self->bits));
+  for(uword32 r = 0; r < registerCount; r++) {
+    uword32 estimatorValue = hyperbuilder_get_register(&estimator_bool, r);
+    if(estimatorValue > hyperbuilder_get_register(&self_bool, r)) {
+      hyperbuilder_set_register(&self_bool, r, estimatorValue);
+    }
+  }
+
+  self->registers->reset();
+  for(uword32 i = 0; i < floor((registerCount) / 12) + 1; i++) {
+    self->registers->add(self_bool.getWord(i));
+  }
+
+  return self_value;
+}
+
 extern "C" VALUE hyperestimator_merge(VALUE estimators) {
   estimators = rb_funcall(estimators, rb_intern("flatten"), 0);
 
@@ -303,5 +332,6 @@ extern "C" void Init_hyperloglog() {
   rbHyperEstimator = rb_define_class("HyperEstimator", rb_cObject);
   rb_define_singleton_method(rbHyperEstimator, "new", (ruby_method*) &hyperestimator_new, 2);
   rb_define_singleton_method(rbHyperEstimator, "estimate", (ruby_method*) &hyperestimator_estimate, -2);
+  rb_define_method(rbHyperEstimator, "merge!", (ruby_method*) &hyperestimator_merge_bang, 1);
   rb_define_method(rbHyperEstimator, "to_s", (ruby_method*) &hyperestimator_to_s, 0);
 }

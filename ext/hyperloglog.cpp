@@ -119,7 +119,7 @@ extern "C" VALUE hyperbuilder_offer(VALUE self, VALUE item) {
 
   uword32 x = hyperbuilder_hash(item);
   uword32 j = x >> (32 - builder->bits);
-  uword64 r = hyperbuilder_clz( (x << builder->bits) | (1 << (builder->bits - 1)) + 1 );
+  uword64 r = hyperbuilder_clz( (x << builder->bits) | ((1 << (builder->bits - 1)) + 1) );
 
   uword32 registerValue = hyperbuilder_get_register(builder->registers, j);
 
@@ -323,7 +323,7 @@ extern "C" VALUE hyperestimator__dump(VALUE self, VALUE level) {
   estimator->registers->write(ss);
 
   char *marshal = (char *)calloc(ss.str().size() + 1, sizeof(char));
-  marshal[0] = estimator->bits;
+  marshal[0] = (char)estimator->bits;
   memcpy(marshal+1, ss.str().c_str(), ss.str().size());
   return rb_str_new(marshal, ss.str().size()+1);
 }

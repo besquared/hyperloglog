@@ -87,4 +87,14 @@ describe 'A HyperEstimator' do
       merged_estimate.should == estimate
     end
   end
+
+  it 'should marshal and load' do
+    builder = HyperBuilder.new(12)
+    10.times { builder.offer(rand.to_s) }
+
+    se = 10 * (1.04 / Math.sqrt(2**12))
+    estimator = Marshal.load(Marshal.dump(builder.estimator))
+    estimate = HyperEstimator.estimate(estimator)
+    estimate.should == 10
+  end
 end

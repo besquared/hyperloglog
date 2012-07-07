@@ -315,6 +315,33 @@ extern "C" VALUE hyperestimator_to_s(VALUE self) {
   return rb_str_new(ss.str().c_str(), ss.str().size());
 }
 
+extern "C" VALUE hyperestimator__dump(VALUE self, VALUE level) {
+  HyperEstimator *estimator;
+  Data_Get_Struct(self, HyperEstimator, estimator);
+
+  stringstream ss;
+  estimator->registers->write(ss);
+
+  char *marshal = (char *)calloc(ss.str().size() + 1, sizeof(char));
+  marshal[0] = estimator->bits;
+  memcpy(marshal+1, ss.str().c_str(), ss.str().size());
+  return rb_str_new(marshal, ss.str().size()+1);
+}
+
+extern "C" VALUE hyperestimator__load(VALUE klass, VALUE marshal) {
+  HyperEstimator *estimator = ALLOC(HyperEstimator);
+
+  estimator->bits = RSTRING_PTR(marshal)[0];
+  estimator->registers = new EWAHBoolArray<uword64>();
+  estimator->registerCount = static_cast<uword32>(pow(2, RSTRING_PTR(marshal)[0]));
+
+  stringstream ss;
+  ss.write(RSTRING_PTR(marshal)+1, RSTRING_LEN(marshal)-1);
+  estimator->registers->read(ss, true);
+
+  return Data_Wrap_Struct(klass, 0, hyperestimator_free, estimator);
+}
+
 static VALUE rbHyperBuilder;
 static VALUE rbHyperEstimator;
 extern "C" void Init_hyperloglog() {
@@ -334,4 +361,6 @@ extern "C" void Init_hyperloglog() {
   rb_define_singleton_method(rbHyperEstimator, "estimate", (ruby_method*) &hyperestimator_estimate, -2);
   rb_define_method(rbHyperEstimator, "merge!", (ruby_method*) &hyperestimator_merge_bang, 1);
   rb_define_method(rbHyperEstimator, "to_s", (ruby_method*) &hyperestimator_to_s, 0);
+  rb_define_method(rbHyperEstimator, "_dump", (ruby_method*) &hyperestimator__dump, 1);
+  rb_define_singleton_method(rbHyperEstimator, "_load", (ruby_method*) &hyperestimator__load, 1);
 }

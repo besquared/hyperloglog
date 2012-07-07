@@ -77,6 +77,9 @@ describe 'A HyperEstimator' do
       # puts "For m = #{m} we should have #{estimate} in [#{total_items - (3 * se)}, #{total_items + (3 * se)}]"
       estimate.should be >= total_items - (3 * se)
       estimate.should be <= total_items + (3 * se)
+
+      array_estimate = HyperEstimator.estimate([builder_a.estimator, builder_b.estimator])
+      array_estimate.should == estimate
     end
   end
 end

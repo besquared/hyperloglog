@@ -203,6 +203,8 @@ extern "C" VALUE hyperbuilder_estimator(VALUE self) {
 }
 
 extern "C" VALUE hyperestimator_merge(VALUE estimators) {
+  estimators = rb_funcall(estimators, rb_intern("flatten"), 0);
+
   uword32 bits = 0;
   BoolArray<uword64> registers[RARRAY_LEN(estimators)];
 

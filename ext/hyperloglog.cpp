@@ -58,7 +58,7 @@ extern "C" uword32 hyperbuilder_get_register(BoolArray<uword64> *registers, uwor
   uword32 bucketPos = position / 12;
   uword32 shift = 5 * (position - (bucketPos * 12));
   // cout << "Getting register " << bucketPos << " at shift " << shift << endl;
-  return (registers->getWord(bucketPos) & (maskBits << shift)) >> shift;
+  return (uword32)((registers->getWord(bucketPos) & (maskBits << shift)) >> shift);
 }
 
 // Hashing and Calculations
@@ -73,7 +73,7 @@ extern "C" uword64 hyperbuilder_clz(uword32 x) {
 
 extern "C" uword32 hyperbuilder_hash(VALUE element) {
   uword32 hash;
-  MurmurHash3_x86_32(RSTRING_PTR(element), RSTRING_LEN(element), 23, &hash);
+  MurmurHash3_x86_32(RSTRING_PTR(element), (uint32_t)RSTRING_LEN(element), 23, &hash);
   return hash;
 }
 

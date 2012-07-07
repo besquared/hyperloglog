@@ -21,10 +21,5 @@ Gem::Specification.new do |s|
 
   if s.respond_to? :specification_version then
     s.specification_version = 3
-
-    if Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.2.0') then
-    else
-    end
-  else
   end
 end

@@ -47,7 +47,7 @@ extern "C" void hyperbuilder_set_register(BoolArray<uword64> *registers, uword32
   // hyperbuilder_printBits(value);
   // cout << "VALUE(S) ";
   // hyperbuilder_printBits(value << shift);
-  
+
   registers->setWord( bucketPos, (registers->getWord(bucketPos) & ~(maskBits << shift)) | (value << shift) );
   // cout << "AFTER    ";
   // hyperbuilder_printBits(registers->getWord(bucketPos));
@@ -58,22 +58,22 @@ extern "C" uword32 hyperbuilder_get_register(BoolArray<uword64> *registers, uwor
   uword32 bucketPos = position / 12;
   uword32 shift = 5 * (position - (bucketPos * 12));
   // cout << "Getting register " << bucketPos << " at shift " << shift << endl;
-  return (registers->getWord(bucketPos) & (maskBits << shift)) >> shift;
+  return (uword32)((registers->getWord(bucketPos) & (maskBits << shift)) >> shift);
 }
 
-// Hashing and Calculations 
+// Hashing and Calculations
 extern "C" uword64 hyperbuilder_clz(uword32 x) {
   uword32 zeros = 0;
   for (short msb = 8 * sizeof(x);
     !(x & (1ULL << msb)) && msb >= 0;
     --msb, ++zeros) {}
-  
+
   return zeros;
 }
 
 extern "C" uword32 hyperbuilder_hash(VALUE element) {
   uword32 hash;
-  MurmurHash3_x86_32(RSTRING(element)->ptr, RSTRING(element)->len, 23, &hash);
+  MurmurHash3_x86_32(RSTRING_PTR(element), (uint32_t)RSTRING_LEN(element), 23, &hash);
   return hash;
 }
 
@@ -85,23 +85,44 @@ extern "C" void hyperbuilder_free(HyperBuilder *builder) {
 
 extern "C" VALUE hyperbuilder_new(VALUE klass, VALUE bits) {
   HyperBuilder *builder = ALLOC(HyperBuilder);
-  
+
   builder->bits = FIX2INT(bits);
   builder->registerCount = static_cast<uword32>(pow(2, FIX2INT(bits)));
   builder->registers = new BoolArray<uword64>(static_cast<size_t>( (floor(builder->registerCount / 12) + 1) * 64) );
   return Data_Wrap_Struct(klass, 0, hyperbuilder_free, builder);
 }
 
+extern "C" VALUE hyperbuilder_load(VALUE klass, VALUE bits, VALUE serialized) {
+  HyperBuilder *builder = ALLOC(HyperBuilder);
+
+  builder->bits = FIX2INT(bits);
+  builder->registerCount = static_cast<uword32>(pow(2, FIX2INT(bits)));
+  builder->registers = new BoolArray<uword64>(static_cast<size_t>( (floor(builder->registerCount / 12) + 1) * 64) );
+
+  EWAHBoolArray<uword64> *registers = new EWAHBoolArray<uword64>();
+  stringstream ss;
+  ss.write(RSTRING_PTR(serialized), RSTRING_LEN(serialized));
+  registers->read(ss, true);
+
+  BoolArray<uword64> base = registers->toBoolArray();
+  for(uword32 r = 0; r < builder->registerCount; r++) {
+    uword32 estimatorValue = hyperbuilder_get_register(&base, r);
+    hyperbuilder_set_register(builder->registers, r, estimatorValue);
+  }
+
+  return Data_Wrap_Struct(klass, 0, hyperbuilder_free, builder);
+}
+
 extern "C" VALUE hyperbuilder_offer(VALUE self, VALUE item) {
   HyperBuilder *builder;
   Data_Get_Struct(self, HyperBuilder, builder);
-  
+
   uword32 x = hyperbuilder_hash(item);
   uword32 j = x >> (32 - builder->bits);
-  uword64 r = hyperbuilder_clz( (x << builder->bits) | (1 << (builder->bits - 1)) + 1 );
-  
+  uword64 r = hyperbuilder_clz( (x << builder->bits) | ((1 << (builder->bits - 1)) + 1) );
+
   uword32 registerValue = hyperbuilder_get_register(builder->registers, j);
-  
+
   if(registerValue < r) {
     hyperbuilder_set_register(builder->registers, j, r);
     return Qtrue;
@@ -120,12 +141,12 @@ extern "C" VALUE hyperbuilder_reset(VALUE self) {
 extern "C" VALUE hyperbuilder_serialize(VALUE self) {
   HyperBuilder *builder;
   Data_Get_Struct(self, HyperBuilder, builder);
-  
+
   EWAHBoolArray<uword64> ewahBitset;
   for(uword32 i = 0; i < floor((builder->registerCount) / 12) + 1; i++) {
     ewahBitset.add(builder->registers->getWord(i));
   }
-  
+
   stringstream ss;
   ewahBitset.write(ss);
   return rb_str_new(ss.str().c_str(), ss.str().size());
@@ -134,29 +155,23 @@ extern "C" VALUE hyperbuilder_serialize(VALUE self) {
 extern "C" VALUE hyperbuilder_to_s(VALUE self) {
   HyperBuilder *builder;
   Data_Get_Struct(self, HyperBuilder, builder);
-  
+
   stringstream ss;
   ss << "[";
   for(uword32 r = 0; r < builder->registerCount; r++) {
     ss << hyperbuilder_get_register(builder->registers, r) << ",  ";
   }
   ss << "]";
-  
+
   return rb_str_new(ss.str().c_str(), ss.str().size());
 }
 
 extern "C" VALUE hyperbuilder_size_in_bits(VALUE self) {
   HyperBuilder *builder;
   Data_Get_Struct(self, HyperBuilder, builder);
-  
+
   return INT2FIX(builder->registers->sizeInBits());
 }
-
-
-// extern "C" VALUE hyperbuilder_merge(VALUE args) {
-//   // return a new hyperbuilder from merging a bunch of other ones
-//   return Qnil;
-// }
 
 /*
  * HyperEstimator
@@ -168,15 +183,15 @@ extern "C" VALUE hyperbuilder_size_in_bits(VALUE self) {
 
 extern "C" VALUE hyperestimator_new(VALUE klass, VALUE bits, VALUE serialized) {
   HyperEstimator *estimator = ALLOC(HyperEstimator);
-  
+
   estimator->bits = FIX2INT(bits);
   estimator->registers = new EWAHBoolArray<uword64>();
   estimator->registerCount = static_cast<uword32>(pow(2, FIX2INT(bits)));
-  
+
   stringstream ss;
-  ss.write(RSTRING(serialized)->ptr, RSTRING(serialized)->len);
+  ss.write(RSTRING_PTR(serialized), RSTRING_LEN(serialized));
   estimator->registers->read(ss, true);
-  
+
   return Data_Wrap_Struct(klass, 0, hyperestimator_free, estimator);
 }
 
@@ -187,15 +202,46 @@ extern "C" VALUE hyperbuilder_estimator(VALUE self) {
   return hyperestimator_new(rb_path2class("HyperEstimator"), INT2FIX(builder->bits), hyperbuilder_serialize(self));
 }
 
+extern "C" VALUE hyperestimator_merge_bang(VALUE self_value, VALUE estimator_value) {
+  HyperEstimator *estimator;
+  Data_Get_Struct(estimator_value, HyperEstimator, estimator);
+  BoolArray<uword64> estimator_bool = estimator->registers->toBoolArray();
+
+  HyperEstimator *self;
+  Data_Get_Struct(self_value, HyperEstimator, self);
+  BoolArray<uword64> self_bool = self->registers->toBoolArray();
+
+  if (self->bits != estimator->bits) {
+    rb_raise(rb_eRuntimeError, "Cannot union estimators that aren't of the same size");
+  }
+
+  uword32 registerCount = static_cast<uword32>(pow(2, self->bits));
+  for(uword32 r = 0; r < registerCount; r++) {
+    uword32 estimatorValue = hyperbuilder_get_register(&estimator_bool, r);
+    if(estimatorValue > hyperbuilder_get_register(&self_bool, r)) {
+      hyperbuilder_set_register(&self_bool, r, estimatorValue);
+    }
+  }
+
+  self->registers->reset();
+  for(uword32 i = 0; i < floor((registerCount) / 12) + 1; i++) {
+    self->registers->add(self_bool.getWord(i));
+  }
+
+  return self_value;
+}
+
 extern "C" VALUE hyperestimator_merge(VALUE estimators) {
+  estimators = rb_funcall(estimators, rb_intern("flatten"), 0);
+
   uword32 bits = 0;
-  BoolArray<uword64> registers[RARRAY(estimators)->len];
-  
+  BoolArray<uword64> registers[RARRAY_LEN(estimators)];
+
   // Collect all the expanded registers
-  for(int i = 0; i < RARRAY(estimators)->len; i++) {
+  for(int i = 0; i < RARRAY_LEN(estimators); i++) {
     HyperEstimator *estimator;
-    Data_Get_Struct(*(RARRAY(estimators)->ptr), HyperEstimator, estimator);
-    
+    Data_Get_Struct(rb_ary_entry(estimators, i), HyperEstimator, estimator);
+
     if(bits == 0) {
       bits = estimator->bits;
     } else if(bits != estimator->bits) {
@@ -203,10 +249,10 @@ extern "C" VALUE hyperestimator_merge(VALUE estimators) {
     }
     registers[i] = estimator->registers->toBoolArray();
   }
-  
+
   uword32 registerCount = static_cast<uword32>(pow(2, bits));
   BoolArray<uword64> *mergedRegisters = new BoolArray<uword64>((registerCount + 1) * 64);
-  for(int e = 0; e < RARRAY(estimators)->len; e++) {
+  for(int e = 0; e < RARRAY_LEN(estimators); e++) {
     for(uword32 r = 0; r < registerCount; r++) {
       uword32 estimatorValue = hyperbuilder_get_register(&registers[e], r);
       if(estimatorValue > hyperbuilder_get_register(mergedRegisters, r)) {
@@ -214,31 +260,31 @@ extern "C" VALUE hyperestimator_merge(VALUE estimators) {
       }
     }
   }
-  
+
   HyperBuilder *builder = ALLOC(HyperBuilder);
   VALUE klass = rb_path2class("HyperBuilder");
-  
+
   builder->bits = bits;
   builder->registers = mergedRegisters;
   builder->registerCount = registerCount;
-  
+
   return Data_Wrap_Struct(klass, 0, hyperbuilder_free, builder);
 }
 
 extern "C" VALUE hyperestimator_estimate(VALUE klass, VALUE estimators) {
   VALUE merged = hyperestimator_merge(estimators);
-  
+
   HyperBuilder *builder;
   Data_Get_Struct(merged, HyperBuilder, builder);
-  
+
   double rSum = 0;
   for(uword32 j = 0; j < builder->registerCount; j++) {
     rSum += pow(2, (-1 * (int)hyperbuilder_get_register(builder->registers, j)));
   }
-  
+
   double alphaM = 0.7213 / (1 + 1.079 / builder->registerCount);
   double estimate = alphaM * pow(builder->registerCount, 2) * (1 / rSum);
-  
+
   if(estimate < (5.0/2.0) * builder->registerCount) {
     uword32 zeros = 0;
     for(uword32 z = 0; z < builder->registerCount; z++) {
@@ -255,18 +301,45 @@ extern "C" VALUE hyperestimator_estimate(VALUE klass, VALUE estimators) {
 extern "C" VALUE hyperestimator_to_s(VALUE self) {
   HyperEstimator *estimator;
   Data_Get_Struct(self, HyperEstimator, estimator);
-  
+
   BoolArray<uword64> registers = estimator->registers->toBoolArray();
-  
+
   stringstream ss;
-  
+
   ss << "[";
   for(uword32 r = 0; r < estimator->registerCount; r++) {
     ss << hyperbuilder_get_register(&registers, r) << ",  ";
   }
   ss << "]";
-  
+
   return rb_str_new(ss.str().c_str(), ss.str().size());
+}
+
+extern "C" VALUE hyperestimator__dump(VALUE self, VALUE level) {
+  HyperEstimator *estimator;
+  Data_Get_Struct(self, HyperEstimator, estimator);
+
+  stringstream ss;
+  estimator->registers->write(ss);
+
+  char *marshal = (char *)calloc(ss.str().size() + 1, sizeof(char));
+  marshal[0] = (char)estimator->bits;
+  memcpy(marshal+1, ss.str().c_str(), ss.str().size());
+  return rb_str_new(marshal, ss.str().size()+1);
+}
+
+extern "C" VALUE hyperestimator__load(VALUE klass, VALUE marshal) {
+  HyperEstimator *estimator = ALLOC(HyperEstimator);
+
+  estimator->bits = RSTRING_PTR(marshal)[0];
+  estimator->registers = new EWAHBoolArray<uword64>();
+  estimator->registerCount = static_cast<uword32>(pow(2, RSTRING_PTR(marshal)[0]));
+
+  stringstream ss;
+  ss.write(RSTRING_PTR(marshal)+1, RSTRING_LEN(marshal)-1);
+  estimator->registers->read(ss, true);
+
+  return Data_Wrap_Struct(klass, 0, hyperestimator_free, estimator);
 }
 
 static VALUE rbHyperBuilder;
@@ -274,6 +347,7 @@ static VALUE rbHyperEstimator;
 extern "C" void Init_hyperloglog() {
   rbHyperBuilder = rb_define_class("HyperBuilder", rb_cObject);
   rb_define_singleton_method(rbHyperBuilder, "new", (ruby_method*) &hyperbuilder_new, 1);
+  rb_define_singleton_method(rbHyperBuilder, "load", (ruby_method*) &hyperbuilder_load, 2);
 
   rb_define_method(rbHyperBuilder, "offer", (ruby_method*) &hyperbuilder_offer, 1);
   rb_define_method(rbHyperBuilder, "reset", (ruby_method*) &hyperbuilder_reset, 0);
@@ -285,5 +359,8 @@ extern "C" void Init_hyperloglog() {
   rbHyperEstimator = rb_define_class("HyperEstimator", rb_cObject);
   rb_define_singleton_method(rbHyperEstimator, "new", (ruby_method*) &hyperestimator_new, 2);
   rb_define_singleton_method(rbHyperEstimator, "estimate", (ruby_method*) &hyperestimator_estimate, -2);
+  rb_define_method(rbHyperEstimator, "merge!", (ruby_method*) &hyperestimator_merge_bang, 1);
   rb_define_method(rbHyperEstimator, "to_s", (ruby_method*) &hyperestimator_to_s, 0);
+  rb_define_method(rbHyperEstimator, "_dump", (ruby_method*) &hyperestimator__dump, 1);
+  rb_define_singleton_method(rbHyperEstimator, "_load", (ruby_method*) &hyperestimator__load, 1);
 }

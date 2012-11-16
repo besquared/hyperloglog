@@ -12,14 +12,14 @@
 
 #include "boolarray.h"
 
-// taken from stackoverflow 
+// taken from stackoverflow
 #ifndef NDEBUG
 #   define ASSERT(condition, message) \
     do { \
         if (! (condition)) { \
             std::cerr << "Assertion `" #condition "` failed in " << __FILE__ \
                       << " line " << __LINE__ << ": " << message << std::endl; \
-            std::exit(EXIT_FAILURE); \
+            exit(EXIT_FAILURE); \
         } \
     } while (false)
 #else
@@ -32,15 +32,15 @@ using namespace std;
 
 /**
 * count the number of bits set to one (32 bit version)
-*/ 
+*/
 uint countOnes(uword32 v) {
-  v = v - ((v >> 1) & 0x55555555);                    
-  v = (v & 0x33333333) + ((v >> 2) & 0x33333333);     
-  return ((v + (v >> 4) & 0xF0F0F0F) * 0x1010101) >> 24; 
+  v = v - ((v >> 1) & 0x55555555);
+  v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
+  return ((v + (v >> 4) & 0xF0F0F0F) * 0x1010101) >> 24;
 }
 /**
 * count the number of bits set to one (64 bit version)
-*/ 
+*/
 uint countOnes(uword64 v) {
 	return countOnes(static_cast<uword32>(v))+ countOnes(static_cast<uword32>(v>>32));
 }
@@ -71,7 +71,7 @@ inline string toBinaryString(const uword w) {
 
 /**
  * For expert users.
- * This class is used to represent a special type of word storing 
+ * This class is used to represent a special type of word storing
  * a run length. It is defined by the Enhanced Word Aligned  Hybrid (EWAH)
  * format. You don't normally need to access this class.
  */
@@ -94,22 +94,22 @@ public:
     bool getRunningBit() const {
         return mydata & static_cast<uword>(1);
     }
-    
+
 
     /**
-     * how many words should be filled by the running bit 
+     * how many words should be filled by the running bit
      */
     static inline bool getRunningBit(uword  data) {
         return data & static_cast<uword>(1) ;
     }
-    
+
     /**
-     * how many words should be filled by the running bit 
+     * how many words should be filled by the running bit
      */
     uword getRunningLength() const {
         return (mydata >> 1) & largestrunninglengthcount ;
     }
-    
+
 
     /**
      * followed by how many literal words?
@@ -117,7 +117,7 @@ public:
     static inline uword getRunningLength(uword data) {
         return (data >> 1) & largestrunninglengthcount ;
     }
-    
+
     /**
      * followed by how many literal words?
      */
@@ -126,12 +126,12 @@ public:
     }
 
     /**
-     * Total of getRunningLength() and getNumberOfLiteralWords() 
+     * Total of getRunningLength() and getNumberOfLiteralWords()
      */
     uword size() const {
         return getRunningLength() + getNumberOfLiteralWords();
     }
-    
+
 
     /**
      * followed by how many literal words?
@@ -148,8 +148,8 @@ public:
         if(b) mydata |= static_cast<uword>(1);
         else mydata &= static_cast<uword>(~1);
     }
-    
-    
+
+
 
     /**
      * running length of which type of bits
@@ -158,8 +158,8 @@ public:
         if(b) data |= static_cast<uword>(1);
         else data &= static_cast<uword>(~1);
     }
-    
-    
+
+
     /**
      * running length of which type of bits
      */
@@ -174,12 +174,12 @@ public:
         setRunningLength(0);
         setNumberOfLiteralWords(getNumberOfLiteralWords() - x);
     }
-    
+
     void setRunningLength(uword l) {
         mydata |= shiftedlargestrunninglengthcount;
         mydata &= static_cast<uword>(l  << 1) | notshiftedlargestrunninglengthcount;
     }
-    
+
     // static call for people who hate objects
     static inline void setRunningLength(uword & data, uword l) {
         data |= shiftedlargestrunninglengthcount;
@@ -247,7 +247,7 @@ public:
     }
 
     /**
-     * Total of getRunningLength() and getNumberOfLiteralWords() 
+     * Total of getRunningLength() and getNumberOfLiteralWords()
      */
     uword size() const {
         return getRunningLength() + getNumberOfLiteralWords();
@@ -279,14 +279,14 @@ public:
         RunningLength = (data >> 1) & RunningLengthWord<uword>::largestrunninglengthcount;
         NumberOfLiteralWords = static_cast<uword>(data >> (1+RunningLengthWord<uword>::runninglengthbits));
     }
-    
+
     /**
 	* Which bit is being repeated?
 	*/
     bool getRunningBit() const {
         return RunningBit;
     }
-    
+
     void discardFirstWords(uword x) {
         assert(x<= size());
         if(RunningLength >= x) {
@@ -314,7 +314,7 @@ public:
 
 
     /**
-     * Total of getRunningLength() and getNumberOfLiteralWords() 
+     * Total of getRunningLength() and getNumberOfLiteralWords()
      */
     uword size() const {
         return static_cast<uword>(RunningLength + NumberOfLiteralWords);
@@ -441,10 +441,10 @@ public:
     }
 
     enum {RESERVEMEMORY=true}; // for speed
-    
+
     typedef EWAHBoolArraySetBitForwardIterator<uword> const_iterator;
-    
-    
+
+
     /**
     * Returns an iterator that can be used to access the position of the
     * set bits. The running time complexity of a full scan is proportional to the number
@@ -454,8 +454,8 @@ public:
     const_iterator begin() const {
 	  return EWAHBoolArraySetBitForwardIterator<uword>(buffer);
     }
-    
-    
+
+
     /**
     * Basically a bogus iterator that can be used together with begin()
     * for constructions such as for(EWAHBoolArray<uword>::iterator i = b.begin(); i!=b.end(); ++i) {}
@@ -470,7 +470,7 @@ public:
     * default, sometimes this version is faster.
     */
     void sparselogicaland( EWAHBoolArray &a, EWAHBoolArray &out) ;
-    
+
     /**
     * computes the logical and with another compressed bitmap
     * answer goes into container
@@ -527,11 +527,11 @@ public:
     * returns the number of words added (storage cost increase)
     */
     inline size_t add(const uword  newdata, const uint bitsthatmatter = 8*sizeof(uword));
-    
+
     inline void printout(ostream &o = cout) {
         toBoolArray().printout(o);
     }
-    
+
     /**
     * Prints a verbose description of the content of the compressed bitmap.
     */
@@ -554,7 +554,7 @@ public:
     }
 
     /**
-    * Return the size of the buffer in bytes. This 
+    * Return the size of the buffer in bytes. This
     * is equivalent to the storage cost, minus some overhead.
     */
     inline size_t sizeInBytes() const {
@@ -568,9 +568,9 @@ public:
     * returns the number of words added (storage cost increase)
     */
     size_t addStreamOfEmptyWords(const bool v, const size_t number);
-    
+
     /**
-    * add a stream of dirty words,, returns the number of words added 
+    * add a stream of dirty words,, returns the number of words added
     * (storage cost increase)
     */
     size_t addStreamOfDirtyWords(const uword * v, const size_t number);
@@ -580,16 +580,16 @@ public:
     * returns the number of words added (storage cost increase)
     */
     inline size_t padWithZeroes(const size_t totalbits);
-    
+
     /**
     * Compute the size on disk assuming that it was saved using
     * the method "save".
     */
     size_t sizeOnDisk() const;
-    
-    
+
+
     /**
-    * Save this bitmap to a stream. The file format is 
+    * Save this bitmap to a stream. The file format is
     * | sizeinbits | buffer lenth | buffer content|
     * the sizeinbits part can be omitted if "savesizeinbits=false".
     * Both sizeinbits and buffer length are saved using the size_t data
@@ -600,13 +600,13 @@ public:
     * storage, you need to save this extra information elsewhere.
     */
     inline void write(ostream & out, const bool savesizeinbits=true) const;
-    
+
     /**
     * This only writes the content of the buffer (see write()) method.
     * It is for advanced users.
     */
     inline void writeBuffer(ostream & out) const;
-    
+
     /**
     * size (in words) of the underlying STL vector.
     */
@@ -620,8 +620,8 @@ public:
 	* for setting the value fo the attribute sizeinbits (see method setSizeInBits).
 	*/
     inline void read(istream & in, const bool savesizeinbits=true);
-    
-    
+
+
     /**
     * read the buffer from a stream, see method writeBuffer.
     * this is for advanced users.
@@ -635,15 +635,15 @@ public:
     bool operator==(const BoolArray<uword> & x) const;
 
     bool operator!=(const BoolArray<uword> & x) const;
-    
+
     /**
     * Iterate over the uncompressed words.
     * Can be considerably faster than begin()/end().
-    * Running time complexity of a full scan is proportional to the 
+    * Running time complexity of a full scan is proportional to the
     * uncompressed size of the bitmap.
     */
     EWAHBoolArrayIterator<uword> uncompress() const ;
-    
+
     /**
     * To iterate over non-zero uncompressed words.
     * Can be considerably faster than begin()/end().
@@ -661,7 +661,7 @@ public:
     EWAHBoolArrayRawIterator<uword> raw_iterator() const ;
 
     /**
-    * Appends the content of some other compressed bitmap 
+    * Appends the content of some other compressed bitmap
     * at the end of the current bitmap.
     */
     void append(const EWAHBoolArray & x);
@@ -673,15 +673,15 @@ public:
     BitmapStatistics computeStatistics() const;
 
     BoolArray<uword> toBoolArray() const;
-    
+
     /**
     * Convert to a list of positions of "set" bits.
     * The recommender container is vector<size_t>.
     */
     template <class container>
     void appendRowIDs(container & out, const size_t offset = 0) const;
-    
-    
+
+
     /**
     * Convert to a list of positions of "set" bits.
     * The recommender container is vector<size_t>.
@@ -691,20 +691,20 @@ public:
     void appendSetBits(container & out, const size_t offset = 0) const {
 	return appendRowIDs(out,offset);
     }
-    
+
     /**
     * Returns the number of bits set to the value 1.
-    * The running time complexity is proportional to the 
+    * The running time complexity is proportional to the
     * compressed size of the bitmap.
     */
     size_t numberOfOnes();
-    
+
     /**
     * Swap the content of this bitmap with another bitmap.
     * No copying is done. (Running time complexity is constant.)
     */
     void swap(EWAHBoolArray & x);
-    
+
     const vector<uword> & getBuffer() const {
         return buffer;
     };
@@ -721,7 +721,7 @@ public:
         lastRLW(other.lastRLW) {
         ASSERT(buffer.size()<=1,"You are trying to copy the bitmap, a terrible idea in general, for performance reasons.");// performance assert!
     }
-    
+
     /**
     * Copies the content of one bitmap onto another. Running time complexity
     * is proportional to the size of the compressed bitmap.
@@ -736,7 +736,7 @@ public:
 
     /**
      * This is equivalent to the operator =. It is used
-     * to keep in mind that assignment can be expensive. 
+     * to keep in mind that assignment can be expensive.
      *
      *if you don't care to copy the bitmap (performance-wise), use this!
      */
@@ -750,13 +750,13 @@ public:
     * Write the logical not of this bitmap in the provided container.
     */
     void logicalnot(EWAHBoolArray & x) const;
-    
+
     /**
     * Apply the logical not operation on this bitmap.
     * Running time complexity is proportional to the compressed size of the bitmap.
     */
     void inplace_logicalnot();
-    
+
 
 private:
 
@@ -851,15 +851,15 @@ public:
     typedef size_t & reference_type;
     typedef size_t  value_type;
 	typedef ptrdiff_t  difference_type;
-    typedef EWAHBoolArraySetBitForwardIterator<uword> type_of_iterator; 
+    typedef EWAHBoolArraySetBitForwardIterator<uword> type_of_iterator;
 
 	/**
 	* Provides the location of the set bit.
 	*/
     size_t operator*() const {
-	return currentrunoffset+offsetofpreviousrun; 
+	return currentrunoffset+offsetofpreviousrun;
     }
-    
+
     // this can be expensive
     difference_type operator-(const type_of_iterator& o) {
 	type_of_iterator& smaller = *this<o ? *this : o;
@@ -872,12 +872,12 @@ public:
 		++absdiff;
 		++buf;
 	}
-	if(*this<o) 
+	if(*this<o)
 		return absdiff;
-	else 
+	else
 		return - absdiff;
     }
-    
+
     bool operator<(const type_of_iterator& o) {
 	if(buffer != o.buffer) return false;
 		if(mpointer==buffer.size()) return false;
@@ -893,15 +893,15 @@ public:
     bool operator<=(const type_of_iterator& o) {
 	return ( (*this) < o ) || ((*this) == o);
     }
-    
+
     bool operator>(const type_of_iterator& o) {
 	return ! ((*this) <= o ) ;
     }
-    
+
     bool operator>=(const type_of_iterator& o) {
 	return ! ((*this) < o ) ;
     }
-    
+
     EWAHBoolArraySetBitForwardIterator & operator++() {
 	++currentrunoffset;
 	advanceToNextSetBit();
@@ -917,7 +917,7 @@ public:
 	// if they are both over, return true
 	if((mpointer==buffer.size()) && (o.mpointer==o.buffer.size()))
 	  return true;
-	return (buffer == o.buffer) && (mpointer == o.mpointer) && 
+	return (buffer == o.buffer) && (mpointer == o.mpointer) &&
 	(offsetofpreviousrun == o.offsetofpreviousrun) && (currentrunoffset == o.currentrunoffset);
     }
 
@@ -925,12 +925,12 @@ public:
 	// if they are both over, return false
 	if((mpointer==buffer.size()) && (o.mpointer==o.buffer.size()))
 	  return false;
-	return (buffer != o.buffer) || (mpointer != o.mpointer) || 
+	return (buffer != o.buffer) || (mpointer != o.mpointer) ||
 	(offsetofpreviousrun != o.offsetofpreviousrun) || (currentrunoffset != o.currentrunoffset);
     }
 
 
-    EWAHBoolArraySetBitForwardIterator(const EWAHBoolArraySetBitForwardIterator & o) : buffer(o.buffer), mpointer(o.mpointer), 
+    EWAHBoolArraySetBitForwardIterator(const EWAHBoolArraySetBitForwardIterator & o) : buffer(o.buffer), mpointer(o.mpointer),
     offsetofpreviousrun(o.offsetofpreviousrun), currentrunoffset(o.currentrunoffset), rlw(o.rlw) {}
 
 private:
@@ -952,7 +952,7 @@ private:
 				}
 			}
 			const uword currentword = buffer[mpointer + 1 +  indexoflitword];
-			for(uint inwordpointer = 
+			for(uint inwordpointer =
 			static_cast<uint>((currentrunoffset-rlw.getRunningLength() * wordinbits)%wordinbits);
 			 inwordpointer<wordinbits;++inwordpointer,++currentrunoffset) {
 				if((currentword & (static_cast<uword>(1) << inwordpointer))!=0)
@@ -970,11 +970,11 @@ private:
 		} else {
 			return false;
 		}
-		return true;  
+		return true;
 	}
 
 
-    EWAHBoolArraySetBitForwardIterator(const vector<uword> & parent, size_t startpointer = 0) : buffer(parent), mpointer(startpointer), 
+    EWAHBoolArraySetBitForwardIterator(const vector<uword> & parent, size_t startpointer = 0) : buffer(parent), mpointer(startpointer),
     offsetofpreviousrun(0), currentrunoffset(0), rlw(0)  {
 	if(mpointer<buffer.size()) {
 	  rlw.mydata = buffer[mpointer];
@@ -1349,7 +1349,7 @@ size_t EWAHBoolArray<uword>::numberOfOnes() {
             if ( (currentword & (static_cast<uword>(1) << k)) != 0)
                 ++c;
         }*/
-        
+
     }
     return c;
 
@@ -1376,7 +1376,7 @@ void EWAHBoolArray<uword>::appendRowIDs(container & out, const size_t offset) co
         for(uword k = 0; k<rlw.getNumberOfLiteralWords(); ++k) {
             const uword currentword = buffer[pointer];
             for(uint kk = 0; kk < wordinbits; ++kk) {
-                if ( ( currentword & static_cast<uword>(static_cast<uword>(1) << kk)) != 0) 
+                if ( ( currentword & static_cast<uword>(static_cast<uword>(1) << kk)) != 0)
                     out.push_back(currentoffset + kk);
             }
             currentoffset+=wordinbits;

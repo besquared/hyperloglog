@@ -16,10 +16,10 @@ The API is broken out into 2 pieces, the HyperBuilder and the HyperEstimator. Th
     
     require 'hyperloglog'
     
-    # Build a new estimator
-    builder = HyperBuilder.new
+    # Build a new builder of 10 bits and load in some data points
+    builder = HyperBuilder.new(10)
     0.upto(100).each{|user_id| builder.offer(user_id.to_s)}
-    
+
     # Read an estimator from bytes on disk
     estimator = HyperEstimator.new(File.read('bytes.txt'))
     
@@ -28,6 +28,14 @@ The API is broken out into 2 pieces, the HyperBuilder and the HyperEstimator. Th
     
     # puts estimate
     # => 147
+
+
+    # Serilize the bitmap for map-reduce or persistence
+    my_model.cardinality_bitmap = builder.serialize
+
+    # Load the bitmap from a serialization
+    builder = HyperBuilder.load(10, my_model.cardinality_bitmap)
+
     
 # External Libraries Included
 
